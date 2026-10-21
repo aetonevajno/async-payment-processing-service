@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, datetime
 from functools import partial
 from uuid import UUID
@@ -213,13 +214,15 @@ async def test_consumer_delivers_real_http(
     event_id: UUID,
     broker: RabbitBroker,
     receiver: tuple[int, list[dict[str, object]]],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    caplog.set_level(logging.INFO)
     port, requests = receiver
     settings = worker_settings.model_copy(update={"webhook_private_hosts": ["127.0.0.1"]})
     sessions = create_session_factory(engine)
     async with sessions.begin() as session:
         payment = (await session.scalars(select(Payment))).one()
-        payment.webhook_url = f"http://127.0.0.1:{port}/hook"
+        payment.webhook_url = f"http://127.0.0.1:{port}/hook?token=merchant-secret"
     consumer = asyncio.create_task(run_consumer(settings))
     send = partial(publish_event, broker=broker, settings=settings)
     try:
@@ -233,6 +236,7 @@ async def test_consumer_delivers_real_http(
                         assert payment.processing_attempts == payment.webhook_attempts == 1
                         break
                 await asyncio.sleep(0.05)
+        assert "merchant-secret" not in caplog.text
         assert len(requests) == 1
         body = requests[0]["body"]
         assert isinstance(body, dict)

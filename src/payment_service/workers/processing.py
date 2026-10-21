@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -9,6 +10,8 @@ from payment_service.config import WorkerSettings
 from payment_service.db.models import OutboxEvent, Payment, PaymentStatus
 from payment_service.payments.gateway import GatewayUnavailable
 from payment_service.payments.webhook import WebhookDeliveryError
+
+logger = logging.getLogger(__name__)
 
 type Gateway = Callable[[Payment], Awaitable[PaymentStatus]]
 type Webhook = Callable[[Payment], Awaitable[None]]
@@ -56,6 +59,12 @@ async def process_gateway(
     except GatewayUnavailable as error:
         payment.last_processing_error = type(error).__name__
         payment.processing_exhausted = event.attempt == 3
+        logger.warning(
+            "Payment %s processing attempt %s failed: %s",
+            payment.id,
+            event.attempt,
+            payment.last_processing_error,
+        )
         schedule_event(
             session,
             payment,
@@ -90,6 +99,12 @@ async def process_webhook(
     except WebhookDeliveryError as error:
         payment.last_webhook_error = str(error)
         payment.webhook_exhausted = event.attempt == 3
+        logger.warning(
+            "Payment %s webhook attempt %s failed: %s",
+            payment.id,
+            event.attempt,
+            payment.last_webhook_error,
+        )
         schedule_event(
             session,
             payment,

@@ -1,0 +1,19 @@
+# optional local receiver: docker compose -f docker-compose.yaml -f docker-compose.demo.yaml up
+services:
+  webhook-receiver:
+    image: async-payment-processing-service:local
+    command: ["python", "/examples/webhook_receiver.py"]
+    volumes:
+      - ./examples/webhook_receiver.py:/examples/webhook_receiver.py:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8080), timeout=2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  consumer:
+    environment:
+      PAYMENTS_WEBHOOK_PRIVATE_HOSTS: '["webhook-receiver"]'
+    depends_on:
+      webhook-receiver:
+        condition: service_healthy

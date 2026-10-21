@@ -48,6 +48,8 @@ async def receiver() -> AsyncIterator[tuple[int, list[dict[str, object]]]]:
             body = json.loads(await reader.readexactly(size))
             requests.append({"headers": headers, "body": body})
             status = "503 Unavailable" if "/fail " in headers else "204 No Content"
+            if "/recover " in headers and len(requests) == 1:
+                status = "503 Unavailable"
             if "/redirect " in headers:
                 status = "302 Found"
             writer.write(

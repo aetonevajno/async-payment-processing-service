@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 async def run_consumer(settings: WorkerSettings) -> None:
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
     engine = create_engine(settings)
     sessions = create_session_factory(engine)
     broker = create_broker(settings)
