@@ -5,10 +5,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from payment_service.config import Settings
+from payment_service.config import DatabaseSettings
 
 
-def create_engine(settings: Settings) -> AsyncEngine:
+def create_engine(settings: DatabaseSettings) -> AsyncEngine:
     return create_async_engine(
         str(settings.database_url),
         pool_pre_ping=True,

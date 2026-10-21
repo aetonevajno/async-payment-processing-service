@@ -6,15 +6,20 @@
 src/payment_service/
 ├── config.py             
 ├── api/app.py            
-├── db/session.py         
+├── db/
+│   ├── session.py
+│   └── models.py
 └── messaging/broker.py
 tests/
 ├── conftest.py
+├── integration/  
 └── unit/
     ├── test_app.py
     └── test_config.py
 pyproject.toml
 uv.lock
+migrations/
+alembic.ini
 Dockerfile
 .env.example
 ```

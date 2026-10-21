@@ -16,6 +16,8 @@ RUN uv sync --locked --no-dev --no-install-project
 
 COPY README.md ./
 COPY src ./src
+COPY alembic.ini ./
+COPY migrations ./migrations
 RUN uv sync --locked --no-dev --no-editable \
     && groupadd --system payments \
     && useradd --system --gid payments --no-create-home payments

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from payment_service.config import Settings
+from payment_service.config import DatabaseSettings, Settings
 
 
 @pytest.mark.usefixtures("settings_environment")
@@ -49,3 +49,10 @@ def test_environment_overrides_dotenv(tmp_path: Path, monkeypatch: pytest.Monkey
     assert Settings().db_pool_size == 3
     monkeypatch.setenv("PAYMENTS_DB_POOL_SIZE", "7")
     assert Settings().db_pool_size == 7
+
+
+@pytest.mark.usefixtures("settings_environment")
+def test_database_settings_do_not_require_api_or_broker(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PAYMENTS_API_KEY")
+    monkeypatch.delenv("PAYMENTS_RABBITMQ_URL")
+    assert DatabaseSettings().database_url.scheme == "postgresql+asyncpg"
