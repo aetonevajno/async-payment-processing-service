@@ -1,0 +1,111 @@
+x-app: &app
+  build: .
+  image: async-payment-processing-service:local
+
+x-environment: &environment
+  PAYMENTS_DATABASE_URL: postgresql+asyncpg://payments:payments@postgres:5432/payments
+  PAYMENTS_RABBITMQ_URL: amqp://payments:payments@rabbitmq:5672/
+  PAYMENTS_RABBITMQ_CONNECTION_TIMEOUT: ${PAYMENTS_RABBITMQ_CONNECTION_TIMEOUT:-10}
+  PAYMENTS_DB_POOL_SIZE: ${PAYMENTS_DB_POOL_SIZE:-5}
+  PAYMENTS_DB_MAX_OVERFLOW: ${PAYMENTS_DB_MAX_OVERFLOW:-5}
+  PAYMENTS_DB_POOL_TIMEOUT: ${PAYMENTS_DB_POOL_TIMEOUT:-10}
+  PAYMENTS_PROCESSING_RETRY_BASE: ${PAYMENTS_PROCESSING_RETRY_BASE:-1}
+  PAYMENTS_WEBHOOK_TIMEOUT: ${PAYMENTS_WEBHOOK_TIMEOUT:-10}
+  PAYMENTS_WEBHOOK_PRIVATE_HOSTS: ${PAYMENTS_WEBHOOK_PRIVATE_HOSTS:-[]}
+  PAYMENTS_LOG_LEVEL: ${PAYMENTS_LOG_LEVEL:-INFO}
+  PAYMENTS_OUTBOX_POLL_INTERVAL: ${PAYMENTS_OUTBOX_POLL_INTERVAL:-1}
+  PAYMENTS_OUTBOX_PUBLISH_TIMEOUT: ${PAYMENTS_OUTBOX_PUBLISH_TIMEOUT:-10}
+  PAYMENTS_OUTBOX_RETRY_BASE: ${PAYMENTS_OUTBOX_RETRY_BASE:-1}
+  PAYMENTS_OUTBOX_RETRY_MAX: ${PAYMENTS_OUTBOX_RETRY_MAX:-60}
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: payments
+      POSTGRES_PASSWORD: payments
+      POSTGRES_DB: payments
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payments -d payments"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: payments
+      RABBITMQ_DEFAULT_PASS: payments
+    ports:
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      PAYMENTS_DATABASE_URL: postgresql+asyncpg://payments:payments@postgres:5432/payments
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    environment:
+      <<: *environment
+      PAYMENTS_API_KEY: ${PAYMENTS_API_KEY:?Set PAYMENTS_API_KEY in .env or use --env-file .env.example}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/health', headers={'X-API-Key': os.environ['PAYMENTS_API_KEY']}), timeout=3).close()"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  outbox-publisher:
+    <<: *app
+    command: ["python", "-m", "payment_service.workers.outbox"]
+    environment: *environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+  consumer:
+    <<: *app
+    command: ["python", "-m", "payment_service.workers.consumer"]
+    environment: *environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

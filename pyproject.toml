@@ -9,11 +9,14 @@ description = "Asynchronous payment processing service"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aio-pika>=9.6,<10",
     "alembic>=1.15,<2",
     "asyncpg>=0.30,<1",
+    "httpx2>=2.15,<3",
     "fastapi>=0.115,<1",
     "faststream[rabbit]>=0.6,<0.7",
     "pydantic>=2.7,<3",
+    "pamqp>=3.3,<4",
     "pydantic-settings>=2.7,<3",
     "sqlalchemy[asyncio]>=2.0,<2.1",
     "uvicorn>=0.34,<1",
@@ -21,7 +24,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx2>=2.15,<3",
     "mypy>=1.15,<2",
     "pytest>=8.3,<10",
     "pytest-asyncio>=1.0,<2",
@@ -53,4 +55,4 @@ testpaths = ["tests"]
 addopts = "-ra --strict-config --strict-markers"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = ["integration: requires Docker and runs against an isolated PostgreSQL container"]
+markers = ["integration: requires Docker and isolated PostgreSQL/RabbitMQ containers"]

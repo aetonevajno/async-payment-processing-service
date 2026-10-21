@@ -1,14 +1,26 @@
+import asyncio
 import shutil
 import subprocess
 import time
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from uuid import UUID
 
 import pytest
+from aio_pika import connect
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from faststream.rabbit import RabbitBroker
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+from payment_service.config import WorkerSettings
+from payment_service.db.models import OutboxEvent
+from payment_service.db.session import create_session_factory
+from payment_service.messaging.broker import create_broker
+from payment_service.messaging.topology import PAYMENTS_QUEUE, declare_payment_topology
+from payment_service.payments.schemas import PaymentCreate
+from payment_service.payments.service import create_payment
 
 
 @pytest.fixture(scope="session")
@@ -86,3 +98,99 @@ async def engine(postgres_url: str, migrated_database: None) -> AsyncIterator[As
         yield engine
     finally:
         await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def rabbitmq_server(postgres_url: str) -> Iterator[tuple[str, str]]:
+    container = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--detach",
+            "--publish",
+            "127.0.0.1::5672",
+            "--env",
+            "RABBITMQ_DEFAULT_USER=payments",
+            "--env",
+            "RABBITMQ_DEFAULT_PASS=integration-test-only",
+            "rabbitmq:4-management",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    ).stdout.strip()
+    try:
+        address = subprocess.run(
+            ["docker", "port", container, "5672/tcp"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+        url = f"amqp://payments:integration-test-only@{address}/"
+
+        async def wait_for_amqp() -> None:
+            deadline = time.monotonic() + 60
+            while True:
+                try:
+                    connection = await connect(url, timeout=1)
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise
+                    await asyncio.sleep(0.2)
+                else:
+                    await connection.close()
+                    return
+
+        asyncio.run(wait_for_amqp())
+        yield container, f"amqp://payments:integration-test-only@{address}/"
+    finally:
+        subprocess.run(
+            ["docker", "rm", "--force", container], check=True, capture_output=True, timeout=15
+        )
+
+
+@pytest.fixture
+def worker_settings(
+    postgres_url: str,
+    rabbitmq_server: tuple[str, str],
+    settings_environment: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> WorkerSettings:
+    monkeypatch.setenv("PAYMENTS_DATABASE_URL", postgres_url)
+    monkeypatch.setenv("PAYMENTS_RABBITMQ_URL", rabbitmq_server[1])
+    monkeypatch.delenv("PAYMENTS_API_KEY")
+    return WorkerSettings(outbox_poll_interval=0.1, outbox_publish_timeout=1)
+
+
+@pytest.fixture
+async def broker(worker_settings: WorkerSettings) -> AsyncIterator[RabbitBroker]:
+    broker = create_broker(worker_settings)
+    try:
+        await broker.connect()
+        await declare_payment_topology(broker)
+        queue = await broker.declare_queue(PAYMENTS_QUEUE)
+        await queue.purge()
+        yield broker
+    finally:
+        await broker.stop()
+
+
+@pytest.fixture
+async def event_id(engine: AsyncEngine) -> UUID:
+    async with create_session_factory(engine)() as session:
+        await create_payment(
+            session,
+            PaymentCreate.model_validate(
+                {
+                    "amount": "10.00",
+                    "currency": "RUB",
+                    "description": "Test payment",
+                    "webhook_url": "https://merchant.example/webhook",
+                }
+            ),
+            idempotency_key="outbox-test",
+        )
+        return (await session.scalars(select(OutboxEvent.id))).one()

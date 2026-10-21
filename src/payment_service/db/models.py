@@ -4,6 +4,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -51,6 +52,8 @@ class Payment(Base):
     __tablename__ = "payments"
     __table_args__ = (
         UniqueConstraint("idempotency_key"),
+        CheckConstraint("processing_attempts BETWEEN 0 AND 3", name="processing_attempts_range"),
+        CheckConstraint("webhook_attempts BETWEEN 0 AND 3", name="webhook_attempts_range"),
         CheckConstraint("amount > 0 AND amount <> 'NaN'::numeric", name="amount_positive"),
         CheckConstraint("length(btrim(idempotency_key)) > 0", name="idempotency_key_not_blank"),
         CheckConstraint("jsonb_typeof(metadata) = 'object'", name="metadata_object"),
@@ -86,6 +89,13 @@ class Payment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )
+    processing_attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    processing_exhausted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    webhook_attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    webhook_exhausted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    webhook_delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_processing_error: Mapped[str | None] = mapped_column(Text)
+    last_webhook_error: Mapped[str | None] = mapped_column(Text)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

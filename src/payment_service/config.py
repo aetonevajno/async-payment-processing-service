@@ -27,10 +27,20 @@ class DatabaseSettings(BaseSettings):
         return url
 
 
-class Settings(DatabaseSettings):
-    model_config = SettingsConfigDict(extra="forbid")
-
-    api_key: SecretStr = Field(min_length=1)
+class WorkerSettings(DatabaseSettings):
     rabbitmq_url: AmqpDsn = Field(repr=False)
     rabbitmq_connection_timeout: float = Field(default=10, gt=0)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    processing_retry_base: float = Field(default=1, ge=0.1, le=60)
+    webhook_timeout: float = Field(default=10, gt=0, le=60)
+    webhook_private_hosts: list[str] = Field(default_factory=list)
+    outbox_poll_interval: float = Field(default=1, ge=0.1, le=60)
+    outbox_publish_timeout: float = Field(default=10, gt=0, le=60)
+    outbox_retry_base: float = Field(default=1, ge=0.1, le=60)
+    outbox_retry_max: float = Field(default=60, ge=60, le=3600)
+
+
+class Settings(WorkerSettings):
+    model_config = SettingsConfigDict(extra="forbid")
+
+    api_key: SecretStr = Field(min_length=1)

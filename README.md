@@ -16,7 +16,10 @@ src/payment_service/
 ├── db/
 │   ├── session.py
 │   └── models.py
-└── messaging/broker.py
+├── messaging/
+│   ├── broker.py
+│   └── topology.py
+└── workers/
 tests/
 ├── conftest.py
 ├── integration/  
@@ -28,6 +31,7 @@ uv.lock
 migrations/
 alembic.ini
 Dockerfile
+docker-compose.yaml
 .env.example
 ```
 
@@ -43,3 +47,7 @@ Dockerfile
 | `PAYMENTS_DB_MAX_OVERFLOW` | Дополнительные соединения при нагрузке | `5` |
 | `PAYMENTS_DB_POOL_TIMEOUT` | Ожидание свободного соединения, секунды | `10` |
 | `PAYMENTS_LOG_LEVEL` | DEBUG / INFO / WARNING / ERROR / CRITICAL | `INFO` |
+| `PAYMENTS_OUTBOX_POLL_INTERVAL` | Пауза при пустой очереди Outbox / недоступности инфраструктуры, секунды | `1` |
+| `PAYMENTS_OUTBOX_PUBLISH_TIMEOUT` | Максимальное ожидание публикации и подтверждения, секунды | `10` |
+| `PAYMENTS_OUTBOX_RETRY_BASE` | Начальная задержка повторной публикации, секунды | `1` |
+| `PAYMENTS_OUTBOX_RETRY_MAX` | Верхняя граница задержки повторной публикации, секунды | `60` |

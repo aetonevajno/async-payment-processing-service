@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from payment_service.config import DatabaseSettings, Settings
+from payment_service.config import DatabaseSettings, Settings, WorkerSettings
 
 
 @pytest.mark.usefixtures("settings_environment")
@@ -35,6 +35,10 @@ def test_required_settings(variable: str, monkeypatch: pytest.MonkeyPatch) -> No
         ("DB_POOL_TIMEOUT", "0"),
         ("RABBITMQ_CONNECTION_TIMEOUT", "0"),
         ("LOG_LEVEL", "INVALID"),
+        ("OUTBOX_POLL_INTERVAL", "0"),
+        ("OUTBOX_PUBLISH_TIMEOUT", "0"),
+        ("OUTBOX_RETRY_BASE", "0"),
+        ("OUTBOX_RETRY_MAX", "0"),
     ],
 )
 def test_invalid_settings(variable: str, value: str, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,3 +60,9 @@ def test_database_settings_do_not_require_api_or_broker(monkeypatch: pytest.Monk
     monkeypatch.delenv("PAYMENTS_API_KEY")
     monkeypatch.delenv("PAYMENTS_RABBITMQ_URL")
     assert DatabaseSettings().database_url.scheme == "postgresql+asyncpg"
+
+
+@pytest.mark.usefixtures("settings_environment")
+def test_worker_settings_do_not_require_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PAYMENTS_API_KEY")
+    assert WorkerSettings().outbox_publish_timeout == 10
