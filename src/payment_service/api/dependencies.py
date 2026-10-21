@@ -16,7 +16,7 @@ class ApplicationState(TypedDict):
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     session_factory: async_sessionmaker[AsyncSession] = request.state["session_factory"]
-    
+
     try:
         async with session_factory() as session:
             yield session

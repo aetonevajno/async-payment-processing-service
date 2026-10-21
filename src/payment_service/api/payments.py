@@ -32,7 +32,7 @@ async def post_payment(
         raise HTTPException(
             status_code=409, detail="Idempotency-Key already used with a different request"
         ) from error
-    
+
     return PaymentAccepted(
         payment_id=payment.id, status=payment.status, created_at=payment.created_at
     )
@@ -41,10 +41,10 @@ async def post_payment(
 @router.get("/{payment_id}")
 async def get_payment(payment_id: UUID, session: DatabaseSession) -> PaymentDetails:
     payment = await session.get(Payment, payment_id)
-    
+
     if payment is None:
         raise HTTPException(status_code=404, detail="Payment not found")
-    
+
     return PaymentDetails(
         payment_id=payment.id,
         status=payment.status,

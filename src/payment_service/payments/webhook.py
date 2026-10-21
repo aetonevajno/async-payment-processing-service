@@ -33,7 +33,7 @@ async def deliver_webhook(payment: Payment, settings: WorkerSettings) -> None:
     try:
         async with asyncio.timeout(settings.webhook_timeout):
             address = await resolve_destination(url, settings.webhook_private_hosts)
-            
+
             async with httpx2.AsyncClient(
                 trust_env=False, follow_redirects=False, timeout=settings.webhook_timeout
             ) as client:
