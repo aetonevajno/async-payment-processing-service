@@ -2,19 +2,18 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from secrets import compare_digest
-from typing import Annotated, TypedDict
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Security, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Security, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from payment_service.api.dependencies import ApplicationState
+from payment_service.api.payments import router as payments_router
 from payment_service.config import Settings
 from payment_service.db.session import create_engine, create_session_factory
-
-
-class ApplicationState(TypedDict):
-    session_factory: async_sessionmaker[AsyncSession]
 
 
 class HealthResponse(BaseModel):
@@ -50,6 +49,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(authenticate)],
         openapi_url=None,
     )
+    app.include_router(payments_router)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": [
+                    {"loc": failure["loc"], "msg": failure["msg"], "type": failure["type"]}
+                    for failure in error.errors()
+                ]
+            },
+        )
 
     @app.get("/health")
     async def health() -> HealthResponse:

@@ -5,7 +5,14 @@
 ```text
 src/payment_service/
 ├── config.py             
-├── api/app.py            
+├── api/
+│   ├── app.py
+│   ├── dependencies.py
+│   ├── payments.py
+│   └── schemas.py
+├── payments/
+│   ├── schemas.py
+│   └── service.py
 ├── db/
 │   ├── session.py
 │   └── models.py
