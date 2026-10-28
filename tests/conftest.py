@@ -16,6 +16,7 @@ def settings_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
         "RABBITMQ_CONNECTION_TIMEOUT",
         "LOG_LEVEL",
         "PROCESSING_RETRY_BASE",
+        "GATEWAY_TIMEOUT",
         "WEBHOOK_TIMEOUT",
         "WEBHOOK_PRIVATE_HOSTS",
         "OUTBOX_POLL_INTERVAL",

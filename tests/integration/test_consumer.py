@@ -12,12 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from payment_service.config import WorkerSettings
 from payment_service.db.models import OutboxEvent, Payment, PaymentStatus
 from payment_service.db.session import create_session_factory
+from payment_service.messaging.outbox import publish_next
+from payment_service.messaging.publisher import publish_event
 from payment_service.messaging.topology import DEAD_QUEUE
 from payment_service.payments.gateway import GatewayUnavailable
+from payment_service.payments.processing import EventInProgress, process_event
 from payment_service.payments.webhook import WebhookDeliveryError
 from payment_service.workers.consumer import run_consumer
-from payment_service.workers.outbox import publish_event, publish_next
-from payment_service.workers.processing import process_event
 
 pytestmark = pytest.mark.integration
 
@@ -69,9 +70,13 @@ async def test_business_outcome_and_duplicate_delivery(
         webhook=calls.webhook,
         settings=worker_settings,
     )
-    await asyncio.gather(process(event_id), process(event_id))
+    outcomes = await asyncio.gather(process(event_id), process(event_id), return_exceptions=True)
+    assert all(outcome is None or isinstance(outcome, EventInProgress) for outcome in outcomes)
     webhook_id = await next_event(engine, "payment.webhook", 1)
-    await asyncio.gather(process(webhook_id), process(webhook_id))
+    outcomes = await asyncio.gather(
+        process(webhook_id), process(webhook_id), return_exceptions=True
+    )
+    assert all(outcome is None or isinstance(outcome, EventInProgress) for outcome in outcomes)
     assert calls.gateway_calls == calls.webhook_calls == 1
     async with sessions() as session:
         payment = (await session.scalars(select(Payment))).one()

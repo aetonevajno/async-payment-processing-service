@@ -126,3 +126,7 @@ class OutboxEvent(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     publish_attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     last_error: Mapped[str | None] = mapped_column(Text)
+    processing_token: Mapped[UUID | None] = mapped_column()
+    processing_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    publish_token: Mapped[UUID | None] = mapped_column()
+    publish_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -10,8 +10,10 @@ from faststream.rabbit.schemas import Channel
 from pamqp.commands import Basic
 
 from payment_service.config import WorkerSettings
+from payment_service.db.outbox import LeaseLost
 from payment_service.db.session import create_engine, create_session_factory
 from payment_service.messaging.broker import create_broker
+from payment_service.messaging.publisher import PublishNotConfirmed
 from payment_service.messaging.topology import (
     DEAD_EXCHANGE,
     DEAD_QUEUE,
@@ -20,9 +22,8 @@ from payment_service.messaging.topology import (
     declare_payment_topology,
 )
 from payment_service.payments.gateway import simulate_payment
+from payment_service.payments.processing import EventInProgress, InvalidEvent, process_event
 from payment_service.payments.webhook import deliver_webhook
-from payment_service.workers.outbox import PublishNotConfirmed
-from payment_service.workers.processing import InvalidEvent, process_event
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,11 @@ async def run_consumer(settings: WorkerSettings) -> None:
             except ValueError as error:
                 raise InvalidEvent("invalid_message_id") from error
             await process_event(event_id, sessions, simulate_payment, webhook, settings)
+        except (EventInProgress, LeaseLost) as error:
+            logger.info("Event deferred: %s", error)
+            await asyncio.sleep(settings.outbox_poll_interval)
+            await message.nack(requeue=True)
+            return
         except InvalidEvent as error:
             # Malformed messages have no payment FK, so cannot enter the database Outbox.
             # Confirm a persistent dead-letter copy before acknowledging the original.

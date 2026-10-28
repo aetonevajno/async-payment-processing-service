@@ -19,12 +19,14 @@ from payment_service.config import WorkerSettings
 from payment_service.db.models import OutboxEvent
 from payment_service.db.session import create_session_factory
 from payment_service.messaging.broker import create_broker
+from payment_service.messaging.outbox import publish_next
+from payment_service.messaging.publisher import publish_event
 from payment_service.messaging.topology import (
     PAYMENTS_EXCHANGE,
     PAYMENTS_QUEUE,
     declare_payment_topology,
 )
-from payment_service.workers.outbox import publish_event, publish_next, run_publisher
+from payment_service.workers.outbox import run_publisher
 
 pytestmark = pytest.mark.integration
 

@@ -32,6 +32,7 @@ class WorkerSettings(DatabaseSettings):
     rabbitmq_connection_timeout: float = Field(default=10, gt=0)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     processing_retry_base: float = Field(default=1, ge=0.1, le=60)
+    gateway_timeout: float = Field(default=10, gt=0, le=60)
     webhook_timeout: float = Field(default=10, gt=0, le=60)
     webhook_private_hosts: list[str] = Field(default_factory=list)
     outbox_poll_interval: float = Field(default=1, ge=0.1, le=60)

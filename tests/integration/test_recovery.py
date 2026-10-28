@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from payment_service.config import WorkerSettings
 from payment_service.db.models import OutboxEvent, Payment, PaymentStatus
 from payment_service.db.session import create_session_factory
+from payment_service.messaging.outbox import publish_next
+from payment_service.messaging.publisher import publish_event
+from payment_service.payments.processing import process_event
 from payment_service.payments.webhook import deliver_webhook
 from payment_service.workers.consumer import run_consumer
-from payment_service.workers.outbox import publish_event, publish_next
-from payment_service.workers.processing import process_event
 from tests.integration.test_consumer import Calls, next_event
 
 pytestmark = pytest.mark.integration

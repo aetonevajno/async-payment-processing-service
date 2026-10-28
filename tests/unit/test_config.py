@@ -35,6 +35,8 @@ def test_required_settings(variable: str, monkeypatch: pytest.MonkeyPatch) -> No
         ("DB_POOL_TIMEOUT", "0"),
         ("RABBITMQ_CONNECTION_TIMEOUT", "0"),
         ("LOG_LEVEL", "INVALID"),
+        ("GATEWAY_TIMEOUT", "0"),
+        ("GATEWAY_TIMEOUT", "61"),
         ("OUTBOX_POLL_INTERVAL", "0"),
         ("OUTBOX_PUBLISH_TIMEOUT", "0"),
         ("OUTBOX_RETRY_BASE", "0"),

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from payment_service.api.dependencies import get_session
 from payment_service.api.schemas import PaymentAccepted, PaymentDetails
-from payment_service.db.models import Payment
+from payment_service.db.payments import PaymentRepository
 from payment_service.payments.schemas import PaymentCreate
 from payment_service.payments.service import IdempotencyConflict, create_payment
 
@@ -40,7 +40,7 @@ async def post_payment(
 
 @router.get("/{payment_id}")
 async def get_payment(payment_id: UUID, session: DatabaseSession) -> PaymentDetails:
-    payment = await session.get(Payment, payment_id)
+    payment = await PaymentRepository(session).get(payment_id)
 
     if payment is None:
         raise HTTPException(status_code=404, detail="Payment not found")

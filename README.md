@@ -12,14 +12,19 @@ src/payment_service/
 │   └── schemas.py
 ├── payments/
 │   ├── schemas.py
-│   └── service.py
+│   ├── service.py        # создание платежа и идемпотентность
+│   └── processing.py     # попытки шлюза и доставки webhook
 ├── db/
 │   ├── session.py
-│   └── models.py
+│   ├── models.py
+│   ├── payments.py       # репозиторий платежей
+│   └── outbox.py         # репозиторий событий и владение публикацией
 ├── messaging/
 │   ├── broker.py
-│   └── topology.py
-└── workers/
+│   ├── topology.py
+│   ├── publisher.py      # отправка и подтверждения RabbitMQ
+│   └── outbox.py         # публикация с повторами
+└── workers/              # запуск, жизненный цикл и ACK/NACK
 tests/
 ├── conftest.py
 ├── integration/  
@@ -47,6 +52,10 @@ docker-compose.yaml
 | `PAYMENTS_DB_MAX_OVERFLOW` | Дополнительные соединения при нагрузке | `5` |
 | `PAYMENTS_DB_POOL_TIMEOUT` | Ожидание свободного соединения, секунды | `10` |
 | `PAYMENTS_LOG_LEVEL` | DEBUG / INFO / WARNING / ERROR / CRITICAL | `INFO` |
+| `PAYMENTS_PROCESSING_RETRY_BASE` | Начальная задержка повторной обработки и webhook, секунды | `1` |
+| `PAYMENTS_GATEWAY_TIMEOUT` | Максимальное ожидание платёжного шлюза, секунды | `10` |
+| `PAYMENTS_WEBHOOK_TIMEOUT` | Максимальное ожидание webhook, включая DNS, секунды | `10` |
+| `PAYMENTS_WEBHOOK_PRIVATE_HOSTS` | JSON-массив разрешённых приватных хостов для webhook | `[]` |
 | `PAYMENTS_OUTBOX_POLL_INTERVAL` | Пауза при пустой очереди Outbox / недоступности инфраструктуры, секунды | `1` |
 | `PAYMENTS_OUTBOX_PUBLISH_TIMEOUT` | Максимальное ожидание публикации и подтверждения, секунды | `10` |
 | `PAYMENTS_OUTBOX_RETRY_BASE` | Начальная задержка повторной публикации, секунды | `1` |
